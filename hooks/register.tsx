@@ -120,6 +120,49 @@ const hamster = (m: Meal, eating: boolean) => {
 export const hamsterSvg = (m: Meal, eating: boolean) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" width="240" height="200">${hamster(m, eating)}</svg>`
 
+const wheel = (r: number, spin: string) => {
+  const spokes = [0, 45, 90, 135].map(a => `<line x1="0" y1="${4 - r}" x2="0" y2="${r - 4}" transform="rotate(${a})" stroke="#B9C3CF" stroke-width="3"/>`).join('')
+  return `
+    <path d="M${(-0.57 * r).toFixed(1)} ${r + 8} L0 0 L${(0.57 * r).toFixed(1)} ${r + 8}" stroke="#9AA6B4" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <circle r="${r}" fill="none" stroke="#9AA6B4" stroke-width="5"/>
+    <g>${spokes}<animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="${spin}" repeatCount="indefinite"/></g>
+    <circle r="5" fill="#9AA6B4"/>`
+}
+
+const house = `
+    <path d="M0 80 L0 26 Q45 -16 90 26 L90 80 Z" fill="#E58F6B"/>
+    <path d="M-6 30 Q45 -24 96 30" stroke="#C96F4E" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M30 80 L30 52 Q45 38 60 52 L60 80 Z" fill="#7A4B3A"/>`
+
+const bandText = (m: Meal) => `
+  <text x="285" y="46" font-family="ui-sans-serif, system-ui, sans-serif" font-size="36" font-weight="700" fill="#5B4636">${sum(m) ? `${fmt(sum(m))}<tspan font-size="26" font-weight="600" fill="#7A6656"> context tokens eaten</tspan>` : EATING}</text>`
+
+export const sceneSvg = (m: Meal, eating: boolean) => {
+  const dust = [-300, -120, 60, 150, 330, 420, 700, 790, 960, 1130, 1300, 1480].map((x, i) =>
+    `<path d="M${x} ${143 + (i % 3) * 2} q6 -3 12 0" stroke="#CDB98F" stroke-width="2" fill="none"/>`).join('')
+  const pebbles = [-200, 90, 380, 760, 1050, 1400].map((x, i) =>
+    `<ellipse cx="${x}" cy="${145 + (i % 2) * 2}" rx="${6 + (i % 3) * 2}" ry="2.5" fill="#C9B48A"/>`).join('')
+  const motes = [120, 300, 470, 720, 900, 1110].map((x, i) => `
+    <circle cx="${x}" cy="100" r="${1.5 + (i % 3) * 0.7}" fill="#F2C14E" opacity="0">
+      <animate attributeName="cy" values="120;20" dur="${7 + i}s" begin="${i * 1.1}s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0;0.7;0" dur="${7 + i}s" begin="${i * 1.1}s" repeatCount="indefinite"/>
+    </circle>`).join('')
+  const sprout = (x: number, h: number) =>
+    `<path d="M${x} 140 q-6 -${h / 2} 0 -${h}" stroke="#7FA65A" stroke-width="4" fill="none" stroke-linecap="round">
+      <animateTransform attributeName="transform" type="rotate" values="-3 ${x} 140;3 ${x} 140;-3 ${x} 140" dur="5s" repeatCount="indefinite"/></path>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 150" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <rect x="-4000" y="-500" width="9200" height="640" fill="#F7EEDF"/>
+  <rect x="-4000" y="140" width="9200" height="500" fill="#E8D3A8"/>
+  <path d="M-4000 140 H5200" stroke="#D9C091" stroke-width="2"/>
+  ${dust}${pebbles}${motes}
+  ${sprout(40, 34)}${sprout(52, 24)}${sprout(1160, 30)}${sprout(1172, 40)}
+  <g transform="translate(180 67)">${wheel(65, eating ? '1.2s' : '14s')}</g>
+  <g transform="translate(963 2) scale(1.72)">${house}</g>
+  <g transform="translate(745 -31) scale(0.9)">${hamster(m, eating)}</g>
+  ${bandText(m)}
+</svg>`
+}
+
 const feed = async ($: EngineInterface, u: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }) => {
   const meal: Meal = {
     input: u.input_tokens,
@@ -199,6 +242,42 @@ export const register: Register = on => {
     }
     await showStatus($)
     return next(e)
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey) return next(e)
+    const details = () => void $.ui.open({ id: PANE, title: TITLE })
+
+    if (e.surface === 'terminal') {
+      const m = await read($, session)
+      const { Box, Text, Button } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="row" gap={2}>
+          <Text bold>{eaten(m)}</Text>
+          <Button key="details" label="Details" hotkey="d" variant="secondary" onPress={details} />
+        </Box>
+      )
+    }
+
+    const m = await read($, session)
+    const eating = await read($, isEating)
+    const { Box, Svg, Button } = $.ui.resolve(e)
+    return (
+      <Box position="relative" width="100%" flexGrow={1} borderStyle="round" borderColor="#E9A96B" paddingX={1}>
+        <Box width="100%">
+          <Svg
+            source={sceneSvg(m, eating)}
+            alt={`A hamster in its cage that has eaten ${eaten(m)}`}
+            width={e.props.bodyColumns * 8}
+            height={140}
+            isInteractive
+          />
+        </Box>
+        <Box position="absolute" top={0} right={2} flexDirection="row" gap={1}>
+          <Button key="details" label=" Details " hotkey="d" variant="secondary" onPress={details} />
+        </Box>
+      </Box>
+    )
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
