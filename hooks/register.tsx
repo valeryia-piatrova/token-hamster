@@ -1,17 +1,19 @@
 import { atom, read, update } from 'claude-code'
 import type { BoxProps, ElementConstructor, EngineInterface, MarkdownProps, Register, TextProps, Timer } from 'claude-code'
 
-import type { Figures, Meal } from '../types'
+import type { Figures, Left, Meal } from '../types'
 
 const PANE = 'token-hamster'
 const TITLE = 'Token Hamster'
 const STORE_KEY = 'lifetime'
 const EMPTY: Meal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+const NO_LEFT: Left = { limits: [] }
 
 const session = atom({ plugin: 'token-hamster', key: 'session' } as const, EMPTY)
 const lifetime = atom({ plugin: 'token-hamster', key: 'lifetime' } as const, 0)
 const isEating = atom({ plugin: 'token-hamster', key: 'isEating' } as const, false)
 const frame = atom({ plugin: 'token-hamster', key: 'frame' } as const, 0)
+const left = atom({ plugin: 'token-hamster', key: 'left' } as const, NO_LEFT)
 
 const KINDS = [
   { key: 'input', label: 'input', color: '#F2C14E' },
@@ -28,6 +30,23 @@ export const fmt = (n: number) =>
   : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k`
   : String(n)
 
+const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+
+const WINDOWS: Record<string, string> = { five_hour: 'session', seven_day: 'week' }
+
+export const leftText = (l: Left) =>
+  [
+    ...(l.context === undefined ? [] : [`${fmt(l.context)} context left`]),
+    ...l.limits.map(w => `${WINDOWS[w.kind] ?? w.kind} ${w.percentLeft}%`),
+  ].join(' · ')
+
+export const until = (iso: string | undefined, now: number) => {
+  const ms = iso ? Date.parse(iso) - now : NaN
+  if (!(ms > 0)) return ''
+  const h = Math.floor(ms / 3.6e6)
+  return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.floor(ms / 6e4) % 60}m`
+}
+
 export const cacheHit = (m: Meal) => {
   const inTotal = m.input + m.cacheRead + m.cacheWrite
   return inTotal ? Math.round((m.cacheRead / inTotal) * 100) : 0
@@ -36,7 +55,12 @@ export const cacheHit = (m: Meal) => {
 export const EATING = 'eating tokens…'
 export const eaten = (m: Meal, suffix = '') => (sum(m) ? `${fmt(sum(m))} context tokens eaten${suffix}` : EATING)
 
-export const statusText = (m: Meal) => (sum(m) ? `🐹 all ${fmt(sum(m))}` : `🐹 ${EATING}`)
+export const statusText = (m: Meal, l: Left) =>
+  [
+    sum(m) ? `🐹 all ${fmt(sum(m))}` : `🐹 ${EATING}`,
+    ...l.limits.map(w => `${WINDOWS[w.kind] ?? w.kind} ${w.percentLeft}%`),
+    ...(l.cost === undefined ? [] : [`credits $${l.cost.toFixed(2)}`]),
+  ].join(' · ')
 
 export const cheek = (total: number) => 1 + Math.min(0.8, Math.log10(total + 1) / 11)
 
@@ -135,10 +159,11 @@ const house = `
     <path d="M-6 30 Q45 -24 96 30" stroke="#C96F4E" stroke-width="8" fill="none" stroke-linecap="round"/>
     <path d="M30 80 L30 52 Q45 38 60 52 L60 80 Z" fill="#7A4B3A"/>`
 
-const bandText = (m: Meal) => `
-  <text x="285" y="46" font-family="ui-sans-serif, system-ui, sans-serif" font-size="36" font-weight="700" fill="#5B4636">${sum(m) ? `${fmt(sum(m))}<tspan font-size="26" font-weight="600" fill="#7A6656"> context tokens eaten</tspan>` : EATING}</text>`
+const bandText = (m: Meal, l: Left) => `
+  <text x="285" y="46" font-family="ui-sans-serif, system-ui, sans-serif" font-size="36" font-weight="700" fill="#5B4636">${sum(m) ? `${fmt(sum(m))}<tspan font-size="26" font-weight="600" fill="#7A6656"> context tokens eaten</tspan>` : EATING}</text>
+  <text x="285" y="80" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#5B4636">${esc(leftText(l))}</text>`
 
-export const sceneSvg = (m: Meal, eating: boolean) => {
+export const sceneSvg = (m: Meal, eating: boolean, l = NO_LEFT) => {
   const dust = [-300, -120, 60, 150, 330, 420, 700, 790, 960, 1130, 1300, 1480].map((x, i) =>
     `<path d="M${x} ${143 + (i % 3) * 2} q6 -3 12 0" stroke="#CDB98F" stroke-width="2" fill="none"/>`).join('')
   const pebbles = [-200, 90, 380, 760, 1050, 1400].map((x, i) =>
@@ -160,7 +185,7 @@ export const sceneSvg = (m: Meal, eating: boolean) => {
   <g transform="translate(180 67)">${wheel(65, eating ? '1.2s' : '14s')}</g>
   <g transform="translate(963 2) scale(1.72)">${house}</g>
   <g transform="translate(745 -31) scale(0.9)">${hamster(m, eating)}</g>
-  ${bandText(m)}
+  ${bandText(m, l)}
 </svg>`
 }
 
@@ -223,6 +248,25 @@ export const halfBlocks = (rows: string[]) => {
   return out
 }
 
+const refreshLeft = async ($: EngineInterface) => {
+  const u = await $.session.usage().catch(() => undefined)
+  if (!u) return
+  const { tokens, window } = u.context
+  const now = await $.clock.now().catch(() => 0)
+  const next: Left = {
+    context: tokens === undefined ? undefined : Math.max(0, window - tokens),
+    window,
+    cost: u.cost?.usd,
+    at: Math.floor(now / 60_000) * 60_000,
+    limits: u.rateLimits.map(w => ({
+      kind: w.kind,
+      percentLeft: Math.max(0, Math.round(100 - w.percentUsed)),
+      resetsAt: w.resetsAt,
+    })),
+  }
+  await update($, left, () => next)
+}
+
 const feed = async ($: EngineInterface, u: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }) => {
   const meal: Meal = {
     input: u.input_tokens,
@@ -240,21 +284,28 @@ const feed = async ($: EngineInterface, u: { input_tokens: number; output_tokens
   const life = (typeof stored === 'number' && Number.isFinite(stored) ? stored : 0) + sum(meal)
   await $.store.set(STORE_KEY, life)
   await update($, lifetime, () => life)
+  await refreshLeft($)
   await showStatus($)
 }
 
 const showStatus = async ($: EngineInterface) => {
-  $.ui.status(statusText(await read($, session)))
+  $.ui.status(statusText(await read($, session), await read($, left)))
 }
 
 export const paneStatus = (m: Meal, eating: boolean) =>
   eating ? 'nom nom nom…' : sum(m) ? 'full and napping' : 'hungry, waiting for a prompt'
 
-export const paneFigures = (m: Meal, life: number, eating: boolean): Figures => ({
+export const paneFigures = (m: Meal, life: number, l: Left, eating: boolean): Figures => ({
   blocks: [
     { text: eaten(m, ' this session'), bold: true },
     { text: `${fmt(life)} lifetime · ${paneStatus(m, eating)}`, dim: true },
-    { text: `cache hit ${cacheHit(m)}%`, dim: true },
+    ...l.limits.map(w => {
+      const t = until(w.resetsAt, l.at ?? 0)
+      const name = w.kind === 'five_hour' ? 'Session limit' : w.kind === 'seven_day' ? 'Weekly' : w.kind
+      return { text: `${name}: ${w.percentLeft}% left${t ? ` · resets in ${t}` : ''}` }
+    }),
+    ...(l.context === undefined ? [] : [{ text: `Context: ${fmt(l.context)} left` }]),
+    { text: `${l.cost === undefined ? '' : `$${l.cost.toFixed(2)} · `}cache hit ${cacheHit(m)}%`, dim: true },
     ...KINDS.map(k => ({ text: `${k.label}: ${fmt(m[k.key])}`, dot: k.color })),
   ],
 })
@@ -291,6 +342,7 @@ export const register: Register = on => {
     await $.command.register({ name: 'hamster', description: 'Open the Token Hamster pane' })
     const stored = await $.store.get(STORE_KEY)
     await update($, lifetime, () => (typeof stored === 'number' && Number.isFinite(stored) ? stored : 0))
+    await refreshLeft($)
     return next(e)
   })
 
@@ -312,6 +364,7 @@ export const register: Register = on => {
       chew?.cancel()
       chew = undefined
       await update($, isEating, () => false)
+      await refreshLeft($)
     }
     await showStatus($)
     return next(e)
@@ -324,6 +377,7 @@ export const register: Register = on => {
     if (e.surface === 'terminal') {
       const m = await read($, session)
       const eating = await read($, isEating)
+      const l = await read($, left)
       const { Box, Text, Button } = $.ui.resolve(e)
       const f = eating ? await read($, frame) : 0
       return (
@@ -333,6 +387,7 @@ export const register: Register = on => {
           </Box>
           <Box flexDirection="column">
             <Text bold>{eaten(m)}</Text>
+            <Text dimColor>{leftText(l)}</Text>
             <Button key="details" label="Details" hotkey="d" variant="secondary" onPress={details} />
           </Box>
         </Box>
@@ -341,12 +396,13 @@ export const register: Register = on => {
 
     const m = await read($, session)
     const eating = await read($, isEating)
+    const l = await read($, left)
     const { Box, Svg, Button } = $.ui.resolve(e)
     return (
       <Box position="relative" width="100%" flexGrow={1} borderStyle="round" borderColor="#E9A96B" paddingX={1}>
         <Box width="100%">
           <Svg
-            source={sceneSvg(m, eating)}
+            source={sceneSvg(m, eating, l)}
             alt={`A hamster in its cage that has eaten ${eaten(m)}`}
             width={e.props.bodyColumns * 8}
             height={140}
@@ -364,21 +420,23 @@ export const register: Register = on => {
     if (e.surface === 'terminal') {
       const m = await read($, session)
       const life = await read($, lifetime)
+      const l = await read($, left)
       const eating = await read($, isEating)
       const { Box, Text } = $.ui.resolve(e)
       const f = eating ? await read($, frame) : 0
       return (
         <Box flexDirection="column">
           {hamsterCells(Text, m, eating, f)}
-          {drawFigures(Box, Text, $.ui.resolve(e).Markdown, paneFigures(m, life, eating))}
+          {drawFigures(Box, Text, $.ui.resolve(e).Markdown, paneFigures(m, life, l, eating))}
         </Box>
       )
     }
 
     const m = await read($, session)
     const eating = await read($, isEating)
+    const l = await read($, left)
     const { Box, Svg, Markdown, Text } = $.ui.resolve(e)
-    const figures = drawFigures(Box, Text, Markdown, paneFigures(m, await read($, lifetime), eating))
+    const figures = drawFigures(Box, Text, Markdown, paneFigures(m, await read($, lifetime), l, eating))
     return (
       <Box flexDirection="column" alignItems="center">
         <Svg
