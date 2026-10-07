@@ -17,6 +17,7 @@ declare module 'claude-code' {
       session: Meal
       lifetime: number
       isEating: boolean
+      frame: number
     }
   }
 }

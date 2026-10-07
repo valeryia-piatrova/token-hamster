@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { BoxProps, ElementConstructor, EngineInterface, MarkdownProps, Register, TextProps } from 'claude-code'
+import type { BoxProps, ElementConstructor, EngineInterface, MarkdownProps, Register, TextProps, Timer } from 'claude-code'
 
 import type { Figures, Meal } from '../types'
 
@@ -11,6 +11,7 @@ const EMPTY: Meal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 const session = atom({ plugin: 'token-hamster', key: 'session' } as const, EMPTY)
 const lifetime = atom({ plugin: 'token-hamster', key: 'lifetime' } as const, 0)
 const isEating = atom({ plugin: 'token-hamster', key: 'isEating' } as const, false)
+const frame = atom({ plugin: 'token-hamster', key: 'frame' } as const, 0)
 
 const KINDS = [
   { key: 'input', label: 'input', color: '#F2C14E' },
@@ -163,6 +164,65 @@ export const sceneSvg = (m: Meal, eating: boolean) => {
 </svg>`
 }
 
+const PX: Record<string, string> = {
+  O: '#E9A96B',
+  C: '#F4C59A',
+  B: '#FBE3C8',
+  P: '#F5B8B0',
+  E: '#2B2118',
+  W: '#FFFFFF',
+  N: '#D9707A',
+  M: '#7A3B3B',
+  D: '#8FC3F0',
+}
+
+export const hamsterPixels = (m: Meal, eating: boolean, f: number) => {
+  const g = [
+    '...OO........OO...',
+    '..OPPO......OPPO..',
+    '..OOOOOOOOOOOOOO..',
+    '.OOOOOOOOOOOOOOOO.',
+    '.OOOOOOOOOOOOOOOO.',
+    'OOOOOOOOOOOOOOOOOO',
+    'OCCCOOOBBBBOOOCCCO',
+    'CCCCOOBBNNBBOOCCCC',
+    'CCCCCBBBBBBBBCCCCC',
+    '.CCCBBBBBBBBBBCCC.',
+    '.OOOBBBBBBBBBBOOO.',
+    '..OOOBBBBBBBBOOO..',
+    '...OOOOOOOOOOOO...',
+    '...CCC......CCC...',
+  ].map(r => r.split(''))
+  const put = (y: number, x: number, c: string) => { g[y]![x] = c }
+  for (const x of [4, 12]) {
+    if (eating) { put(4, x, 'E'); put(4, x + 1, 'W'); put(5, x, 'E'); put(5, x + 1, 'E') }
+    else { put(5, x, 'E'); put(5, x + 1, 'E') }
+  }
+  if (eating && f % 2) { put(8, 8, 'M'); put(8, 9, 'M') }
+  const puff = cheek(sum(m)) > 1.35
+  for (const [y, r] of g.entries()) {
+    const c = puff && (y === 7 || y === 8) ? 'C' : '.'
+    r.unshift(c); r.push(c)
+  }
+  return g.map(r => r.join(''))
+}
+
+export const halfBlocks = (rows: string[]) => {
+  const out: { ch: string; fg?: string; bg?: string }[][] = []
+  for (let y = 0; y < rows.length; y += 2) {
+    out.push([...rows[y]!].map((t, x) => {
+      const b = rows[y + 1]?.[x] ?? '.'
+      const top = PX[t], bot = PX[b]
+      return !top && !bot ? { ch: ' ' }
+        : top === bot ? { ch: '█', fg: top }
+        : !bot ? { ch: '▀', fg: top }
+        : !top ? { ch: '▄', fg: bot }
+        : { ch: '▀', fg: top, bg: bot }
+    }))
+  }
+  return out
+}
+
 const feed = async ($: EngineInterface, u: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number }) => {
   const meal: Meal = {
     input: u.input_tokens,
@@ -216,7 +276,16 @@ const drawFigures = (
   </Box>
 )
 
+const hamsterCells = (Text: ElementConstructor<TextProps>, m: Meal, eating: boolean, f: number) =>
+  halfBlocks(hamsterPixels(m, eating, f)).map((row, y) => (
+    <Text>
+      {row.map(c => <Text color={c.fg} backgroundColor={c.bg}>{c.ch}</Text>)}
+      {y === 3 && <Text color="#F2C14E">{eating ? '  ∘ • · ∘ •'.slice(f % 4) : '  z Z z'}</Text>}
+    </Text>
+  ))
+
 export const register: Register = on => {
+  let chew: Timer | undefined
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'hamster', description: 'Open the Token Hamster pane' })
@@ -232,12 +301,16 @@ export const register: Register = on => {
 
   on('turn.start', async ($, e, next) => {
     await update($, isEating, () => true)
+    chew?.cancel()
+    chew = $.clock.every(300, () => void update($, frame, n => n + 1))
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     if (e.usage) await feed($, e.usage)
     if (!e.agentId) {
+      chew?.cancel()
+      chew = undefined
       await update($, isEating, () => false)
     }
     await showStatus($)
@@ -250,11 +323,18 @@ export const register: Register = on => {
 
     if (e.surface === 'terminal') {
       const m = await read($, session)
+      const eating = await read($, isEating)
       const { Box, Text, Button } = $.ui.resolve(e)
+      const f = eating ? await read($, frame) : 0
       return (
         <Box flexDirection="row" gap={2}>
-          <Text bold>{eaten(m)}</Text>
-          <Button key="details" label="Details" hotkey="d" variant="secondary" onPress={details} />
+          <Box flexDirection="column">
+            {hamsterCells(Text, m, eating, f)}
+          </Box>
+          <Box flexDirection="column">
+            <Text bold>{eaten(m)}</Text>
+            <Button key="details" label="Details" hotkey="d" variant="secondary" onPress={details} />
+          </Box>
         </Box>
       )
     }
@@ -285,8 +365,14 @@ export const register: Register = on => {
       const m = await read($, session)
       const life = await read($, lifetime)
       const eating = await read($, isEating)
-      const { Box, Text, Markdown } = $.ui.resolve(e)
-      return drawFigures(Box, Text, Markdown, paneFigures(m, life, eating))
+      const { Box, Text } = $.ui.resolve(e)
+      const f = eating ? await read($, frame) : 0
+      return (
+        <Box flexDirection="column">
+          {hamsterCells(Text, m, eating, f)}
+          {drawFigures(Box, Text, $.ui.resolve(e).Markdown, paneFigures(m, life, eating))}
+        </Box>
+      )
     }
 
     const m = await read($, session)
