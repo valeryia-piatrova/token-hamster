@@ -58,8 +58,8 @@ const MOOD_TEXT: Record<Mood, string> = {
 export const until = (iso: string | undefined, now: number) => {
   const ms = iso ? Date.parse(iso) - now : NaN
   if (!(ms > 0)) return ''
-  const h = Math.floor(ms / 3.6e6)
-  return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.floor(ms / 6e4) % 60}m`
+  const hours = Math.floor(ms / 3.6e6)
+  return hours >= 24 ? `${Math.floor(hours / 24)}d ${hours % 24}h` : `${hours}h ${Math.floor(ms / 6e4) % 60}m`
 }
 
 export const moodText = (l: Left, now: number) => {
@@ -285,8 +285,8 @@ export const sceneSvg = (m: Meal, eating: boolean, l = NO_LEFT, withText: unknow
       <animate attributeName="cy" values="120;20" dur="${7 + i}s" begin="${i * 1.1}s" repeatCount="indefinite"/>
       <animate attributeName="opacity" values="0;0.7;0" dur="${7 + i}s" begin="${i * 1.1}s" repeatCount="indefinite"/>
     </circle>`).join('')
-  const sprout = (x: number, h: number) =>
-    `<path d="M${x} 140 q-6 -${h / 2} 0 -${h}" stroke="#7FA65A" stroke-width="4" fill="none" stroke-linecap="round">
+  const sprout = (x: number, height: number) =>
+    `<path d="M${x} 140 q-6 -${height / 2} 0 -${height}" stroke="#7FA65A" stroke-width="4" fill="none" stroke-linecap="round">
       <animateTransform attributeName="transform" type="rotate" values="-3 ${x} 140;3 ${x} 140;-3 ${x} 140" dur="5s" repeatCount="indefinite"/></path>`
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 150" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
   <rect x="-4000" y="-500" width="9200" height="640" fill="#F7EEDF"/>
