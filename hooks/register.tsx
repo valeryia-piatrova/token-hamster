@@ -616,15 +616,17 @@ const hamsterCells = (Text: ElementConstructor<TextProps>, m: Meal, eating: bool
     </Text>
   ))
 
+const countTool = (calling: Map<string, Record<string, number>>, loop: string, tool: string) => {
+  const counts = calling.get(loop) ?? {}
+  calling.set(loop, { ...counts, [tool]: (counts[tool] ?? 0) + 1 })
+}
+
 export const register: Register = on => {
   let chew: Timer | undefined
   const calling = new Map<string, Record<string, number>>()
 
-  on('tool.call', async (_$, e, next) => {
-    const loop = e.agentId ?? 'main'
-    const t = calling.get(loop) ?? {}
-    t[e.tool] = (t[e.tool] ?? 0) + 1
-    calling.set(loop, t)
+  on('tool.call', ($, e, next) => {
+    countTool(calling, e.agentId ?? 'main', e.tool)
     return next(e)
   })
 
