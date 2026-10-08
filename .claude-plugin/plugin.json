@@ -9,7 +9,11 @@
   },
   "homepage": "https://github.com/valeryia-piatrova/token-hamster",
   "repository": "https://github.com/valeryia-piatrova/token-hamster",
+  "documentationUrl": "https://github.com/valeryia-piatrova/token-hamster#readme",
+  "supportUrl": "https://github.com/valeryia-piatrova/token-hamster/issues",
+  "privacyPolicyUrl": "https://github.com/valeryia-piatrova/token-hamster/blob/main/PRIVACY.md",
+  "termsOfServiceUrl": "https://github.com/valeryia-piatrova/token-hamster/blob/main/LICENSE",
   "license": "MIT",
-  "keywords": ["mod", "usage", "tokens", "limits", "cost", "statusline"],
+  "keywords": ["mod", "usage", "token-usage", "tokens", "limits", "rate-limit", "usage-limits", "cost", "usage-monitor", "statusline", "tamagotchi"],
   "types": "./types/index.d.ts"
 }
