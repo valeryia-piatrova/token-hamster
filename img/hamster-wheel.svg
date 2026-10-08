@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" width="240" height="200">
+  <rect x="0" y="190" width="240" height="10" rx="5" fill="#E8D3A8"/>
+  <g transform="translate(120 106)">
+    <path d="M-43.3 84 L0 0 L43.3 84" stroke="#9AA6B4" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <circle r="76" fill="none" stroke="#9AA6B4" stroke-width="5"/>
+    <g><line x1="0" y1="-72" x2="0" y2="72" transform="rotate(0)" stroke="#B9C3CF" stroke-width="3"/><line x1="0" y1="-72" x2="0" y2="72" transform="rotate(45)" stroke="#B9C3CF" stroke-width="3"/><line x1="0" y1="-72" x2="0" y2="72" transform="rotate(90)" stroke="#B9C3CF" stroke-width="3"/><line x1="0" y1="-72" x2="0" y2="72" transform="rotate(135)" stroke="#B9C3CF" stroke-width="3"/><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/></g>
+    <circle r="5" fill="#9AA6B4"/>
+    <g transform="translate(0 71) scale(0.92)">
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="0.100s" repeatCount="indefinite"/>
+    
+    <g transform="translate(-17 -13)"><g>
+      <animateTransform attributeName="transform" type="rotate" values="-38;34;-38" dur="0.2s" begin="-0.100s" repeatCount="indefinite"/>
+      <rect x="-3.2" y="0" width="6.4" height="12" rx="3.2" fill="#D4914F"/>
+      <ellipse cx="2" cy="12" rx="5" ry="2.6" fill="#E8B48A"/>
+    </g></g>
+    <g transform="translate(25 -13)"><g>
+      <animateTransform attributeName="transform" type="rotate" values="-38;34;-38" dur="0.2s" begin="0.000s" repeatCount="indefinite"/>
+      <rect x="-3.2" y="0" width="6.4" height="12" rx="3.2" fill="#D4914F"/>
+      <ellipse cx="2" cy="12" rx="5" ry="2.6" fill="#E8B48A"/>
+    </g></g>
+    
+    <g transform="translate(-21 -13)"><g>
+      <animateTransform attributeName="transform" type="rotate" values="-38;34;-38" dur="0.2s" begin="0.000s" repeatCount="indefinite"/>
+      <rect x="-3.2" y="0" width="6.4" height="12" rx="3.2" fill="#E9A96B"/>
+      <ellipse cx="2" cy="12" rx="5" ry="2.6" fill="#F4C59A"/>
+    </g></g>
+    <g transform="translate(21 -13)"><g>
+      <animateTransform attributeName="transform" type="rotate" values="-38;34;-38" dur="0.2s" begin="-0.100s" repeatCount="indefinite"/>
+      <rect x="-3.2" y="0" width="6.4" height="12" rx="3.2" fill="#E9A96B"/>
+      <ellipse cx="2" cy="12" rx="5" ry="2.6" fill="#F4C59A"/>
+    </g></g>
+    <g transform-origin="0 -6">
+      <animateTransform attributeName="transform" type="scale" values="1 1;1.05 0.95;1 1" dur="0.100s" repeatCount="indefinite"/>
+      <ellipse cx="-36" cy="-15" rx="4" ry="3" fill="#F4C59A"/>
+      <path d="M-36 -12 C-38 -34 -16 -46 6 -45 C26 -44 40 -36 46 -24 C50 -14 44 -6 30 -6 L-24 -6 C-33 -6 -36 -8 -36 -12 Z" fill="#E9A96B"/>
+      <path d="M-26 -7 C-20 -18 8 -20 28 -10 C30 -7 27 -6 24 -6 L-22 -6 Z" fill="#FBE3C8"/>
+      <ellipse cx="34" cy="-17" rx="11" ry="8" fill="#F4C59A"/>
+      <ellipse cx="45" cy="-24" rx="8" ry="6" fill="#FBE3C8"/>
+      <circle cx="52" cy="-26" r="2.6" fill="#D9707A"/>
+      <path d="M48 -23 L62 -27 M48 -22 L63 -22 M48 -21 L61 -17" stroke="#9A8C7E" stroke-width="0.8" stroke-linecap="round"/>
+      <ellipse cx="36" cy="-32" rx="3.4" ry="3.8" fill="#2B2118"/>
+      <circle cx="37.2" cy="-33.4" r="1.1" fill="#fff"/>
+      <g transform="rotate(-18 20 -44)">
+        <ellipse cx="20" cy="-44" rx="6" ry="7" fill="#E9A96B"/>
+        <ellipse cx="20" cy="-43" rx="3.4" ry="4.4" fill="#F5B8B0"/>
+      </g>
+      <path d="M42 -42 q-4 7 0 10 q4 -3 0 -10z" fill="#8FC3F0">
+        <animate attributeName="opacity" values="1;0" dur="0.8s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="translate" values="0 0;-12 -6" dur="0.8s" repeatCount="indefinite"/>
+      </path>
+    </g>
+  </g></g></g>
+</svg>
