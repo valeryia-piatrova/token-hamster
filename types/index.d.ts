@@ -19,6 +19,8 @@ export type FigureBlock =
 
 export type Figures = { blocks: FigureBlock[] }
 
+export type Cage = { m: Meal; l: Left; eating: boolean; key: string }
+
 declare module 'claude-code' {
   interface PluginState {
     'token-hamster': {
@@ -27,6 +29,7 @@ declare module 'claude-code' {
       isEating: boolean
       frame: number
       left: Left
+      cage: Cage
     }
   }
 }

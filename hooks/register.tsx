@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { BoxProps, ElementConstructor, EngineInterface, MarkdownProps, Register, TextProps, Timer } from 'claude-code'
 
-import type { Figures, Left, Meal } from '../types'
+import type { Cage, Figures, Left, Meal } from '../types'
 
 const PANE = 'token-hamster'
 const TITLE = 'Token Hamster'
@@ -14,6 +14,7 @@ const lifetime = atom({ plugin: 'token-hamster', key: 'lifetime' } as const, 0)
 const isEating = atom({ plugin: 'token-hamster', key: 'isEating' } as const, false)
 const frame = atom({ plugin: 'token-hamster', key: 'frame' } as const, 0)
 const left = atom({ plugin: 'token-hamster', key: 'left' } as const, NO_LEFT)
+const cage = atom({ plugin: 'token-hamster', key: 'cage' } as const, { m: EMPTY, l: NO_LEFT, eating: false, key: '' } as Cage)
 
 const KINDS = [
   { key: 'input', label: 'input', color: '#F2C14E' },
@@ -97,7 +98,7 @@ export const seedColors = (m: Meal) => {
 }
 
 const hamster = (m: Meal, eating: boolean, md: Mood = 'fine') => {
-  const c = cheek(sum(m))
+  const c = Math.round(cheek(sum(m)) * 10) / 10
   const crx = (18 * c).toFixed(1)
   const cry = (15 * c).toFixed(1)
   const wob = (18 * c + 2).toFixed(1)
@@ -260,6 +261,9 @@ export const paneHouseSvg = () =>
   <g transform="translate(30 30) scale(2)">${house(true)}</g>
 </svg>`
 
+export const cageKey = (m: Meal, eating: boolean, l: Left) =>
+  JSON.stringify([eating, mood(l), Math.round(cheek(sum(m)) * 10) / 10, seedColors(m)])
+
 const bandText = (m: Meal, l: Left) => {
   const md = mood(l)
   return `
@@ -268,7 +272,7 @@ const bandText = (m: Meal, l: Left) => {
   <text x="285" y="110" font-family="ui-sans-serif, system-ui, sans-serif" font-size="19" font-weight="700" fill="${md === 'worried' ? '#C98A2B' : '#C0453A'}">${esc(moodText(l, l.at ?? 0))}</text>`
 }
 
-export const sceneSvg = (m: Meal, eating: boolean, l = NO_LEFT) => {
+export const sceneSvg = (m: Meal, eating: boolean, l = NO_LEFT, withText: unknown = true) => {
   const md = mood(l)
   const dust = [-300, -120, 60, 150, 330, 420, 700, 790, 960, 1130, 1300, 1480].map((x, i) =>
     `<path d="M${x} ${143 + (i % 3) * 2} q6 -3 12 0" stroke="#CDB98F" stroke-width="2" fill="none"/>`).join('')
@@ -291,7 +295,7 @@ export const sceneSvg = (m: Meal, eating: boolean, l = NO_LEFT) => {
   <g transform="translate(180 67)">${wheel(65, eating ? '1.2s' : '14s', md, 0.87)}</g>
   <g transform="translate(963 2) scale(1.72)">${house(md === 'empty')}</g>
   ${md === 'running' || md === 'empty' ? '' : `<g transform="translate(745 -31) scale(0.9)">${hamster(m, eating, md)}</g>`}
-  ${bandText(m, l)}
+  ${withText ? bandText(m, l) : ''}
 </svg>`
 }
 
@@ -375,6 +379,7 @@ const refreshLeft = async ($: EngineInterface) => {
       resetsAt: w.resetsAt,
     })),
   }
+  if (JSON.stringify(await read($, left)) === JSON.stringify(next)) return
   await update($, left, () => next)
 }
 
@@ -396,11 +401,32 @@ const feed = async ($: EngineInterface, u: { input_tokens: number; output_tokens
   await $.store.set(STORE_KEY, life)
   await update($, lifetime, () => life)
   await refreshLeft($)
+  await syncCage($)
   await showStatus($)
 }
 
 const showStatus = async ($: EngineInterface) => {
   $.ui.status(statusText(await read($, session), await read($, left)))
+}
+
+const syncCage = async ($: EngineInterface) => {
+  const m = await read($, session)
+  const eating = await read($, isEating)
+  const l = await read($, left)
+  const key = cageKey(m, eating, l)
+  if ((await read($, cage)).key !== key) await update($, cage, () => ({ m, l, eating, key }))
+}
+
+const warnColor = (md: Mood) => (md === 'worried' ? '#C98A2B' : '#C0453A')
+
+export const bandFigures = (m: Meal, l: Left): Figures => {
+  const md = mood(l)
+  return {
+    blocks: [
+      { md: leftText(l) ? `## ${eaten(m)}\n\n**${leftText(l)}**` : `## ${eaten(m)}` },
+      ...(md === 'fine' ? [] : [{ text: moodText(l, l.at ?? 0), bold: true, color: warnColor(md) }]),
+    ],
+  }
 }
 
 export const paneStatus = (m: Meal, l: Left, eating: boolean) => {
@@ -456,6 +482,7 @@ export const register: Register = on => {
     const stored = await $.store.get(STORE_KEY)
     await update($, lifetime, () => (typeof stored === 'number' && Number.isFinite(stored) ? stored : 0))
     await refreshLeft($)
+    await syncCage($)
     return next(e)
   })
 
@@ -466,6 +493,7 @@ export const register: Register = on => {
 
   on('turn.start', async ($, e, next) => {
     await update($, isEating, () => true)
+    await syncCage($)
     chew?.cancel()
     chew = $.clock.every(300, () => void update($, frame, n => n + 1))
     return next(e)
@@ -478,6 +506,7 @@ export const register: Register = on => {
       chew = undefined
       await update($, isEating, () => false)
       await refreshLeft($)
+      await syncCage($)
     }
     await showStatus($)
     return next(e)
@@ -509,20 +538,25 @@ export const register: Register = on => {
       )
     }
 
-    const m = await read($, session)
-    const eating = await read($, isEating)
-    const l = await read($, left)
-    const { Box, Svg, Button } = $.ui.resolve(e)
+    const c = await read($, cage)
+    const { Box, Svg, Button, Markdown, Text } = $.ui.resolve(e)
+    const figures = drawFigures(Box, Text, Markdown, bandFigures(await read($, session), await read($, left)))
+    const w = e.props.bodyColumns * 8
+    const scale = Math.min(w / 1200, 140 / 150)
+    const figuresLeft = Math.round(((w - 1200 * scale) / 2 + 285 * scale) / 8)
     return (
       <Box position="relative" width="100%" flexGrow={1} borderStyle="round" borderColor="#E9A96B" paddingX={1}>
-        <Box width="100%">
+        <Box width="100%" position="relative">
           <Svg
-            source={sceneSvg(m, eating, l)}
-            alt={`A hamster in its cage that has eaten ${eaten(m)}`}
-            width={e.props.bodyColumns * 8}
+            source={sceneSvg(c.m, c.eating, c.l, false)}
+            alt={`A hamster in its cage, ${c.eating ? 'eating' : 'napping'}`}
+            width={w}
             height={140}
             isInteractive
           />
+          <Box key="figures" position="absolute" top={0} left={figuresLeft}>
+            {figures}
+          </Box>
         </Box>
         <Box position="absolute" top={0} right={2} flexDirection="row" gap={1}>
           <Button key="details" label=" Details " hotkey="d" variant="secondary" onPress={details} />
@@ -547,17 +581,15 @@ export const register: Register = on => {
       )
     }
 
-    const m = await read($, session)
-    const eating = await read($, isEating)
-    const l = await read($, left)
-    const md = mood(l)
+    const c = await read($, cage)
+    const md = mood(c.l)
     const { Box, Svg, Markdown, Text } = $.ui.resolve(e)
-    const figures = drawFigures(Box, Text, Markdown, paneFigures(m, await read($, lifetime), l, eating))
+    const figures = drawFigures(Box, Text, Markdown, paneFigures(await read($, session), await read($, lifetime), await read($, left), await read($, isEating)))
     return (
       <Box flexDirection="column" alignItems="center">
         <Svg
-          source={md === 'running' ? paneWheelSvg() : md === 'empty' ? paneHouseSvg() : hamsterSvg(m, eating, md)}
-          alt={`A hamster, ${md === 'running' ? 'running in its wheel' : md === 'empty' ? 'asleep in its house' : eating ? 'eating' : 'napping'}`}
+          source={md === 'running' ? paneWheelSvg() : md === 'empty' ? paneHouseSvg() : hamsterSvg(c.m, c.eating, md)}
+          alt={`A hamster, ${md === 'running' ? 'running in its wheel' : md === 'empty' ? 'asleep in its house' : c.eating ? 'eating' : 'napping'}`}
           width={320}
           height={267}
           isInteractive
