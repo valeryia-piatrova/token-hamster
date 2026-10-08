@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" width="240" height="200">
+  <g transform-origin="120 190">
+    
+    <g>
+    <ellipse cx="120" cy="190" rx="70" ry="6" fill="#00000018"/>
+    <ellipse cx="120" cy="145" rx="70" ry="48" fill="#E9A96B"/>
+    <ellipse cx="120" cy="155" rx="42" ry="32" fill="#FBE3C8"/>
+    <circle cx="80" cy="62" r="16" fill="#E9A96B"/><circle cx="80" cy="62" r="9" fill="#F5B8B0"/>
+    <circle cx="160" cy="62" r="16" fill="#E9A96B"/><circle cx="160" cy="62" r="9" fill="#F5B8B0"/>
+    <ellipse cx="120" cy="96" rx="52" ry="44" fill="#E9A96B"/>
+    <ellipse cx="82" cy="112" rx="27.0" ry="22.5" fill="#F4C59A"><animate attributeName="rx" values="27.0;29.0;27.0" dur="0.35s" repeatCount="indefinite"/></ellipse>
+    <ellipse cx="158" cy="112" rx="27.0" ry="22.5" fill="#F4C59A"><animate attributeName="rx" values="27.0;29.0;27.0" dur="0.35s" repeatCount="indefinite"/></ellipse>
+    <circle cx="80" cy="110" r="6" fill="#F29E9E" opacity="0.55"/>
+    <circle cx="160" cy="110" r="6" fill="#F29E9E" opacity="0.55"/>
+    <ellipse cx="120" cy="110" rx="26" ry="20" fill="#FBE3C8"/>
+    
+      <ellipse cx="102" cy="92" rx="6" ry="6" fill="#2B2118">
+        <animate attributeName="ry" values="6;6;0.6;6" keyTimes="0;0.9;0.95;1" dur="3.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <circle cx="104" cy="90" r="2" fill="#fff"/>
+      <ellipse cx="138" cy="92" rx="6" ry="6" fill="#2B2118">
+        <animate attributeName="ry" values="6;6;0.6;6" keyTimes="0;0.9;0.95;1" dur="3.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <circle cx="140" cy="90" r="2" fill="#fff"/>
+    <ellipse cx="120" cy="104" rx="4" ry="3" fill="#D9707A"/>
+    <ellipse cx="120" cy="116" rx="5" ry="2" fill="#7A3B3B">
+        <animate attributeName="ry" values="1;4;1" dur="0.35s" repeatCount="indefinite"/>
+      </ellipse>
+    <ellipse cx="106" cy="132" rx="7" ry="5" fill="#F4C59A"/>
+    <ellipse cx="134" cy="132" rx="7" ry="5" fill="#F4C59A"/>
+    <ellipse cx="96" cy="188" rx="12" ry="5" fill="#F4C59A"/>
+    <ellipse cx="144" cy="188" rx="12" ry="5" fill="#F4C59A"/>
+    
+    <path d="M94 80 L108 76" stroke="#7A4B3A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M146 80 L132 76" stroke="#7A4B3A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M120 58 q-5 8 0 11 q5 -3 0 -11z" fill="#8FC3F0" opacity="0">
+      <animate attributeName="opacity" values="0;1;0" dur="1.6s" begin="0s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0 0;0 14" dur="1.6s" begin="0s" repeatCount="indefinite"/>
+    </path>
+    </g>
+  </g>
+  
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#8AB17D" stroke="#00000033"/>
+        <animateMotion path="M30 -10 Q30 60 120 116" dur="1.2s" begin="0.0s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="0.0s" repeatCount="indefinite"/>
+      </g>
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#8AB17D" stroke="#00000033"/>
+        <animateMotion path="M66 -10 Q66 60 120 116" dur="1.2s" begin="0.2s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="0.2s" repeatCount="indefinite"/>
+      </g>
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#8AB17D" stroke="#00000033"/>
+        <animateMotion path="M102 -10 Q102 60 120 116" dur="1.2s" begin="0.4s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="0.4s" repeatCount="indefinite"/>
+      </g>
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#8AB17D" stroke="#00000033"/>
+        <animateMotion path="M138 -10 Q138 60 120 116" dur="1.2s" begin="0.6s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="0.6s" repeatCount="indefinite"/>
+      </g>
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#8AB17D" stroke="#00000033"/>
+        <animateMotion path="M174 -10 Q174 60 120 116" dur="1.2s" begin="0.8s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="0.8s" repeatCount="indefinite"/>
+      </g>
+      <g opacity="0">
+        <ellipse rx="4" ry="7" fill="#F2C14E" stroke="#00000033"/>
+        <animateMotion path="M210 -10 Q210 60 120 116" dur="1.2s" begin="1.0s" repeatCount="indefinite" rotate="auto"/>
+        <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="1.2s" begin="1.0s" repeatCount="indefinite"/>
+      </g>
+  </svg>
