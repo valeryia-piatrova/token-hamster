@@ -124,6 +124,19 @@ Like the [mods that ship inside Claude Code](https://github.com/anthropics/claud
 
 Data comes from the `turn.complete` hook's `usage` field, the API's own token counts, so the counters move once a turn, when it ends. Limits and reset times come from the same event. The lifetime total is kept across sessions in the plugin store.
 
+### What each hook does
+
+| Hook | What it does |
+| --- | --- |
+| `session.start` | Registers `/hamster`, loads the lifetime total and draws the cage. |
+| `command.run` (`hamster`) | Answers `/hamster` itself by opening the pane. It handles no other command. |
+| `tool.call` | Counts calls per tool for the pane's breakdown. It never changes, blocks or delays a tool: every call goes on to the tool unchanged. |
+| `turn.start` | Starts the eating animation. |
+| `turn.complete` | Adds the turn's tokens, refreshes the limits and stops the animation. |
+| `ui.render` (`AbovePrompt`, `Pane`) | Draws the cage band and the pane. |
+
+It reads only the session's own usage and the list of subagents (to name their types). It runs no processes, reads no files and makes no network requests.
+
 ## Develop
 
 ```bash
