@@ -94,8 +94,9 @@ code { background: var(--surface); padding: 2px 6px; border-radius: 6px; }
 /* Nav */
 .top { display: flex; align-items: center; justify-content: space-between; height: 64px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; }
-.brand img { width: 48px; height: 40px; margin: -4px 0; }
-@media (prefers-reduced-motion: reduce) { .brand img { width: 28px; height: 28px; border-radius: 7px; } }
+.tile { width: 44px; height: 44px; border-radius: var(--radius); background: #FFFFFF; border: 1px solid var(--line); overflow: hidden; display: grid; place-items: center; flex: none; }
+.tile img { width: 52px; height: 43px; max-width: none; margin-top: 3px; transform: translateX(-3px); }
+@media (prefers-reduced-motion: reduce) { .tile img { width: 44px; height: 44px; margin: 0; } }
 
 /* Hero */
 .hero { padding: 72px 0 0; }
@@ -195,7 +196,7 @@ footer a:hover { color: var(--text); }
 <body>
 <div class="wrap">
   <nav class="top" aria-label="Main">
-    <a class="brand" href="./"><picture><source srcset="img/apple-touch-icon.png" media="(prefers-reduced-motion: reduce)"><img src="img/hamster-eating.svg" alt="" width="48" height="40"></picture>Token Hamster</a>
+    <a class="brand" href="./"><span class="tile"><picture><source srcset="img/apple-touch-icon.png" media="(prefers-reduced-motion: reduce)"><img src="img/hamster-worried.svg" alt="" width="52" height="43"></picture></span>Token Hamster</a>
   </nav>
 
   <header class="hero">
