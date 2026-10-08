@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { BoxProps, ElementConstructor, EngineInterface, MarkdownProps, Register, TextProps, Timer } from 'claude-code'
 
-import type { Cage, Figures, Left, Meal } from '../types'
+import type { Cage, FigureBlock, Figures, Left, Meal, Stats } from '../types'
 
 const PANE = 'token-hamster'
 const TITLE = 'Token Hamster'
@@ -14,6 +14,8 @@ const lifetime = atom({ plugin: 'token-hamster', key: 'lifetime' } as const, 0)
 const isEating = atom({ plugin: 'token-hamster', key: 'isEating' } as const, false)
 const frame = atom({ plugin: 'token-hamster', key: 'frame' } as const, 0)
 const left = atom({ plugin: 'token-hamster', key: 'left' } as const, NO_LEFT)
+export const NO_STATS: Stats = { turns: 0, biggest: 0, total: 0, agents: {}, models: {}, tools: {}, recent: [], lastCost: 0, context: [] }
+const stats = atom({ plugin: 'token-hamster', key: 'stats' } as const, NO_STATS)
 const cage = atom({ plugin: 'token-hamster', key: 'cage' } as const, { m: EMPTY, l: NO_LEFT, eating: false, key: '' } as Cage)
 
 const KINDS = [
@@ -417,6 +419,29 @@ const syncCage = async ($: EngineInterface) => {
   if ((await read($, cage)).key !== key) await update($, cage, () => ({ m, l, eating, key }))
 }
 
+const recordTurn = async (
+  $: EngineInterface,
+  agentId: string | undefined,
+  u: { model?: string; input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number } | undefined,
+  tools: Record<string, number>,
+) => {
+  const meal: Meal = u
+    ? { input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens, cacheWrite: u.cache_creation_input_tokens }
+    : EMPTY
+  const who = agentId
+    ? ((await $.agent.list().catch(() => [])).find(a => a.id === agentId)?.type ?? 'subagent')
+    : 'main'
+  const breakdown = agentId ? undefined : (await $.session.usage({ breakdown: 'summary' }).catch(() => undefined))?.context.breakdown
+  const l = await read($, left)
+  await update($, stats, st => ({
+    ...addTurn(st, { tokens: sum(meal), who, model: u?.model, tools, hit: cacheHit(meal), l }),
+    context: breakdown
+      ? breakdown.categories.filter(c => c.kind === 'used' && c.tokens > 0).sort((a, b) => b.tokens - a.tokens).slice(0, 6)
+        .map((c, i) => ({ name: c.name, tokens: c.tokens, color: PALETTE[i % PALETTE.length]! }))
+      : st.context,
+  }))
+}
+
 const warnColor = (md: Mood) => (md === 'worried' ? '#C98A2B' : '#C0453A')
 
 export const bandFigures = (m: Meal, l: Left): Figures => {
@@ -434,7 +459,90 @@ export const paneStatus = (m: Meal, l: Left, eating: boolean) => {
   return md !== 'fine' ? moodText(l, l.at ?? 0) : eating ? 'nom nom nom…' : sum(m) ? 'full and napping' : 'hungry, waiting for a prompt'
 }
 
-export const paneFigures = (m: Meal, life: number, l: Left, eating: boolean): Figures => ({
+const RECENT = 12
+
+export const addTurn = (
+  st: Stats,
+  t: { tokens: number; who: string; model?: string; tools: Record<string, number>; hit: number; l: Left },
+): Stats => {
+  const add = (o: Record<string, number>, k: string | undefined, n: number) => (k ? { ...o, [k]: (o[k] ?? 0) + n } : o)
+  const tools = { ...st.tools }
+  for (const [name, calls] of Object.entries(t.tools)) {
+    const was = tools[name] ?? { calls: 0, tokens: 0 }
+    tools[name] = { calls: was.calls + calls, tokens: was.tokens + t.tokens }
+  }
+  const cost = t.l.cost ?? st.lastCost
+  const main = t.who === 'main'
+  const five = t.l.limits.find(w => w.kind === 'five_hour')
+  const pace = !five ? st.pace : !st.pace || five.percentLeft > st.pace.pct ? { at: t.l.at ?? 0, pct: five.percentLeft } : st.pace
+  return {
+    ...st,
+    turns: st.turns + (main ? 1 : 0),
+    biggest: main ? Math.max(st.biggest, t.tokens) : st.biggest,
+    total: st.total + t.tokens,
+    agents: add(st.agents, t.who, t.tokens),
+    models: add(st.models, t.model?.replace(/^claude-/, ''), t.tokens),
+    tools,
+    recent: main ? [...st.recent, { tokens: t.tokens, hit: t.hit, cost: Math.max(0, cost - st.lastCost) }].slice(-RECENT) : st.recent,
+    lastCost: cost,
+    pace,
+  }
+}
+
+export const forecast = (st: Stats, l: Left) => {
+  const five = l.limits.find(w => w.kind === 'five_hour')
+  if (!five || !st.pace || l.at === undefined) return ''
+  const spent = st.pace.pct - five.percentLeft
+  const ms = l.at - st.pace.at
+  if (spent <= 0 || ms <= 0) return ''
+  const left = (five.percentLeft / spent) * ms
+  const reset = five.resetsAt ? Date.parse(five.resetsAt) - l.at : Infinity
+  if (left >= reset) return 'at this pace the session limit lasts until it resets'
+  return `at this pace the session limit runs out in ~${until(new Date(l.at + left).toISOString(), l.at) || '1m'}`
+}
+
+const PALETTE = ['#E9A96B', '#6C8EBF', '#8AB17D', '#E76F51', '#F2C14E', '#B48EAD', '#9AA6B4']
+const top = (o: Record<string, number>, n = 6) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n)
+
+export const statsFigures = (st: Stats, l: Left): FigureBlock[] => {
+  const out: FigureBlock[] = []
+  const used = st.context.reduce((n, c) => n + c.tokens, 0)
+  if (used) {
+    out.push({ head: 'What fills the context' })
+    for (const c of st.context) out.push({ bar: { label: c.name, share: c.tokens / used, value: fmt(c.tokens), color: c.color } })
+  }
+  if (st.recent.length) {
+    out.push({ head: 'Pace' })
+    out.push({ spark: { label: 'tokens / turn', values: st.recent.map(t => t.tokens), value: `avg ${fmt(Math.round(st.recent.reduce((n, t) => n + t.tokens, 0) / st.recent.length))}` } })
+    out.push({ text: `${st.turns} turns · biggest ${fmt(st.biggest)}`, dim: true })
+    const f = forecast(st, l)
+    if (f) out.push({ text: f, bold: true })
+  }
+  if (st.total) {
+    out.push({ head: 'Who spends' })
+    top(st.agents).forEach(([who, n], i) => out.push({ bar: { label: who, share: n / st.total, value: `${Math.round((n / st.total) * 100)}%`, color: PALETTE[i % PALETTE.length] } }))
+  }
+  const tools = Object.entries(st.tools).sort((a, b) => b[1].tokens - a[1].tokens).slice(0, 6)
+  if (tools.length) {
+    out.push({ head: 'Tools · tokens of the turns that used them' })
+    for (const [name, t] of tools) out.push({ bar: { label: name, share: st.total ? t.tokens / st.total : 0, value: `${t.calls}× · ${fmt(t.tokens)}`, color: '#6C8EBF' } })
+  }
+  if (Object.keys(st.models).length) {
+    out.push({ head: 'Models' })
+    top(st.models).forEach(([name, n], i) => out.push({ bar: { label: name, share: st.total ? n / st.total : 0, value: fmt(n), color: PALETTE[(i + 3) % PALETTE.length] } }))
+  }
+  if (st.recent.length) {
+    out.push({ head: 'Cache and cost' })
+    const last = st.recent[st.recent.length - 1]!
+    out.push({ spark: { label: 'cache hit', values: st.recent.map(t => t.hit), value: `${last.hit}%`, color: '#8AB17D' } })
+    if (st.recent.some(t => t.cost > 0)) {
+      out.push({ spark: { label: 'cost / turn', values: st.recent.map(t => t.cost), value: `last $${last.cost.toFixed(2)}`, color: '#E76F51' } })
+    }
+  }
+  return out
+}
+
+export const paneFigures = (m: Meal, life: number, l: Left, eating: boolean, st: Stats = NO_STATS): Figures => ({
   blocks: [
     { text: eaten(m, ' this session'), bold: true },
     { text: `${fmt(life)} lifetime · ${paneStatus(m, l, eating)}`, dim: true },
@@ -446,18 +554,52 @@ export const paneFigures = (m: Meal, life: number, l: Left, eating: boolean): Fi
     ...(l.context === undefined ? [] : [{ text: `Context: ${fmt(l.context)} left` }]),
     { text: `${l.cost === undefined ? '' : `$${l.cost.toFixed(2)} · `}cache hit ${cacheHit(m)}%`, dim: true },
     ...KINDS.map(k => ({ text: `${k.label}: ${fmt(m[k.key])}`, dot: k.color })),
+    ...statsFigures(st, l),
   ],
 })
 
+const LABEL = 16
+const BAR = 14
+export const spark = (values: number[]) => {
+  const max = Math.max(...values, 0)
+  return values.map(v => (max ? '▁▂▃▄▅▆▇█'[Math.min(7, Math.round((v / max) * 7))] : '▁')).join('')
+}
+
+const TRACK = '#D9D2C7'
 const drawFigures = (
   Box: ElementConstructor<BoxProps>,
   Text: ElementConstructor<TextProps>,
   Markdown: ElementConstructor<MarkdownProps>,
   f: Figures,
+  cells = false,
 ) => (
   <Box flexDirection="column">
     {f.blocks.map(b =>
-      'md' in b ? <Markdown text={b.md} /> : (
+      'md' in b ? <Markdown text={b.md} />
+      : 'head' in b ? <Box marginTop={1}><Text bold>{b.head}</Text></Box>
+      : 'bar' in b ? (
+        <Box flexDirection="row" gap={1}>
+          <Box width={LABEL}><Text wrap="truncate-end">{b.bar.label}</Text></Box>
+          {cells ? (
+            <Text>
+              <Text color={b.bar.color}>{'█'.repeat(Math.round(Math.min(1, b.bar.share) * BAR))}</Text>
+              <Text dimColor>{'░'.repeat(BAR - Math.round(Math.min(1, b.bar.share) * BAR))}</Text>
+            </Text>
+          ) : (
+            <Box width={BAR} height={1} backgroundColor={TRACK}>
+              <Box width={`${Math.round(Math.min(1, b.bar.share) * 100)}%`} height={1} backgroundColor={b.bar.color} />
+            </Box>
+          )}
+          <Text dimColor>{b.bar.value}</Text>
+        </Box>
+      )
+      : 'spark' in b ? (
+        <Box flexDirection="row" gap={1}>
+          <Box width={LABEL}><Text wrap="truncate-end">{b.spark.label}</Text></Box>
+          <Box width={BAR}><Text color={b.spark.color ?? '#E9A96B'}>{spark(b.spark.values)}</Text></Box>
+          <Text dimColor>{b.spark.value}</Text>
+        </Box>
+      ) : (
         <Text bold={b.bold} dimColor={b.dim} color={b.color}>
           {b.dot && <Text color={b.dot}>● </Text>}
           {b.text}
@@ -476,6 +618,15 @@ const hamsterCells = (Text: ElementConstructor<TextProps>, m: Meal, eating: bool
 
 export const register: Register = on => {
   let chew: Timer | undefined
+  const calling = new Map<string, Record<string, number>>()
+
+  on('tool.call', async (_$, e, next) => {
+    const loop = e.agentId ?? 'main'
+    const t = calling.get(loop) ?? {}
+    t[e.tool] = (t[e.tool] ?? 0) + 1
+    calling.set(loop, t)
+    return next(e)
+  })
 
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'hamster', description: 'Open the Token Hamster pane' })
@@ -509,6 +660,10 @@ export const register: Register = on => {
       await syncCage($)
     }
     await showStatus($)
+    const loop = e.agentId ?? 'main'
+    const tools = calling.get(loop) ?? {}
+    calling.delete(loop)
+    await recordTurn($, e.agentId, e.usage, tools)
     return next(e)
   })
 
@@ -576,7 +731,7 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           {hamsterCells(Text, m, eating, f, mood(l))}
-          {drawFigures(Box, Text, $.ui.resolve(e).Markdown, paneFigures(m, life, l, eating))}
+          {drawFigures(Box, Text, $.ui.resolve(e).Markdown, paneFigures(m, life, l, eating, await read($, stats)), true)}
         </Box>
       )
     }
@@ -584,7 +739,7 @@ export const register: Register = on => {
     const c = await read($, cage)
     const md = mood(c.l)
     const { Box, Svg, Markdown, Text } = $.ui.resolve(e)
-    const figures = drawFigures(Box, Text, Markdown, paneFigures(await read($, session), await read($, lifetime), await read($, left), await read($, isEating)))
+    const figures = drawFigures(Box, Text, Markdown, paneFigures(await read($, session), await read($, lifetime), await read($, left), await read($, isEating), await read($, stats)))
     return (
       <Box flexDirection="column" alignItems="center">
         <Svg
