@@ -1,0 +1,21 @@
+{
+  "name": "token-hamster",
+  "description": "Token Hamster, a Claude Code mod for token usage, limits and cost",
+  "owner": {
+    "name": "valeryia-piatrova"
+  },
+  "plugins": [
+    {
+      "name": "token-hamster",
+      "source": "./",
+      "author": {
+        "name": "valeryia-piatrova"
+      },
+      "description": "Claude Code mod that shows token usage, 5-hour and weekly limits, reset countdown and cost per turn as an animated hamster",
+      "version": "0.1.0",
+      "license": "MIT",
+      "keywords": ["mod", "usage", "tokens", "limits", "cost", "statusline"],
+      "category": "productivity"
+    }
+  ]
+}
