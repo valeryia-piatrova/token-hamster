@@ -48,7 +48,7 @@ At half the limit it frowns and sweats. With a quarter left it runs it off in it
 
 `/hamster` (or **Details**) opens a pane with the counts and where the tokens went:
 
-<img src="docs/pane.png" alt="The Token Hamster pane: session token counts, 5-hour and weekly limits, context breakdown, pace forecast, tokens by subagent, tool and model, cache hit rate and cost per turn" width="420">
+![The Token Hamster pane: session token counts, 5-hour and weekly limits, context breakdown, pace forecast, tokens by subagent, tool and model, cache hit rate and cost per turn](docs/pane.png)
 
 - **Context:** what fills the context window, as `/context` lists it.
 - **Pace and forecast:** tokens per turn and when the session limit runs out.

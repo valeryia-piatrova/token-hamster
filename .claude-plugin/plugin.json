@@ -1,9 +1,15 @@
 {
   "name": "token-hamster",
+  "displayName": "Token Hamster",
   "version": "0.1.0",
-  "description": "A vector hamster in a side pane that stuffs its cheeks with every token Claude eats",
+  "description": "Claude Code mod that shows token usage, 5-hour and weekly limits, reset countdown and cost per turn as an animated hamster above the prompt",
   "author": {
-    "name": "valeryia-piatrova"
+    "name": "valeryia-piatrova",
+    "url": "https://github.com/valeryia-piatrova"
   },
+  "homepage": "https://github.com/valeryia-piatrova/token-hamster",
+  "repository": "https://github.com/valeryia-piatrova/token-hamster",
+  "license": "MIT",
+  "keywords": ["mod", "usage", "tokens", "limits", "cost", "statusline"],
   "types": "./types/index.d.ts"
 }
