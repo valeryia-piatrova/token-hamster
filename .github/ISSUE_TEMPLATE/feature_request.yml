@@ -1,0 +1,11 @@
+name: Feature request
+description: Suggest something the hamster could show or do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like to see, and what question about your usage would it answer?
+    validations:
+      required: true
